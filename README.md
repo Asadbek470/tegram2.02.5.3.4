@@ -88,7 +88,7 @@ uzgramm
   <script>
     let userId = Math.floor(Math.random() * 1000000);
     let activeChatId = null;
-    let chats = {};
+    let chats = JSON.parse(localStorage.getItem("chats") || "{}");
 
     document.getElementById('userIdDisplay').innerText = userId;
 
@@ -101,6 +101,7 @@ uzgramm
       if (id && id !== userId.toString()) {
         activeChatId = id;
         if (!chats[activeChatId]) chats[activeChatId] = [];
+        saveChats();
         renderChat();
         document.getElementById('newChatDialog').classList.add('hidden');
       }
@@ -110,8 +111,12 @@ uzgramm
       const input = document.getElementById('messageInput');
       const message = input.value.trim();
       if (message && activeChatId) {
-        chats[activeChatId].push(`Вы: ${message}`);
+        const timestamp = new Date().toLocaleTimeString();
+        chats[activeChatId].push({ from: userId, text: message, time: timestamp });
+        if (!chats[userId]) chats[userId] = [];
+        chats[activeChatId].push({ from: activeChatId, text: `Ответ от ${activeChatId}`, time: timestamp });
         input.value = '';
+        saveChats();
         renderChat();
       }
     }
@@ -123,13 +128,18 @@ uzgramm
         chats[activeChatId].forEach(msg => {
           const div = document.createElement('div');
           div.className = 'message';
-          div.innerText = msg;
+          div.innerText = `${msg.from === userId ? 'Вы' : 'Пользователь ' + msg.from}: ${msg.text} (${msg.time})`;
           chatBox.appendChild(div);
         });
       }
     }
 
+    function saveChats() {
+      localStorage.setItem("chats", JSON.stringify(chats));
+    }
+
     function logout() {
+      localStorage.clear();
       location.reload();
     }
   </script>
