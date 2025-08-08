@@ -1,147 +1,92 @@
 #tegramm
 uzgramm
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenTegram</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #1e1e1e;
-      color: white;
-    }
-    .splash {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: linear-gradient(135deg, #0088cc, #005577);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3em;
-      animation: fadeOut 2s ease 3s forwards;
-      z-index: 1000;
-    }
-    @keyframes fadeOut {
-      to {
-        opacity: 0;
-        visibility: hidden;
-      }
-    }
-    .container {
-      padding: 20px;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background-color: #2a2a2a;
-      padding: 10px;
-    }
-    .btn {
-      background-color: #0088cc;
-      border: none;
-      padding: 10px 20px;
-      color: white;
-      cursor: pointer;
-      border-radius: 5px;
-      margin-left: 5px;
-    }
-    .chat {
-      margin-top: 20px;
-    }
-    .message {
-      background-color: #333;
-      padding: 10px;
-      margin: 5px 0;
-      border-radius: 5px;
-    }
-    .hidden { display: none; }
-  </style>
-</head>
-<body>
-  <div class="splash">OpenTegram</div>
+  <title>OpenTegram Chat</title>
+  <script type="module">
+    // Импорт Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  <div class="header">
-    <div>ID: <span id="userIdDisplay"></span></div>
-    <div>
-      <button class="btn" onclick="showNewChatDialog()">Новый чат</button>
-      <button class="btn" onclick="logout()">Выйти</button>
-    </div>
-  </div>
+    // Конфигурация Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhiffnqKg-ZCvBxucSVXb5UvHiBNVtbZw",
+      authDomain: "tegramm-73828.firebaseapp.com",
+      databaseURL: "https://tegramm-73828-default-rtdb.firebaseio.com",
+      projectId: "tegramm-73828",
+      storageBucket: "tegramm-73828.appspot.com",
+      messagingSenderId: "841309606863",
+      appId: "1:841309606863:web:875c07b87841dd45a0b8ba",
+      measurementId: "G-9PCYZR3LK9"
+    };
 
-  <div class="container">
-    <div class="chat" id="chatBox"></div>
-    <input type="text" id="messageInput" placeholder="Введите сообщение...">
-    <button class="btn" onclick="sendMessage()">Отправить</button>
-  </div>
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-  <div id="newChatDialog" class="container hidden">
-    <h3>Новый чат</h3>
-    <input type="text" id="newChatId" placeholder="Введите ID пользователя">
-    <button class="btn" onclick="startChat()">Начать чат</button>
-  </div>
-
-  <script>
-    let userId = Math.floor(Math.random() * 1000000);
-    let activeChatId = null;
-    let chats = JSON.parse(localStorage.getItem("chats") || "{}");
-
-    document.getElementById('userIdDisplay').innerText = userId;
-
-    function showNewChatDialog() {
-      document.getElementById('newChatDialog').classList.remove('hidden');
+    // Получение или генерация уникального ID пользователя
+    let myID = localStorage.getItem("myID");
+    if (!myID) {
+      myID = "user_" + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem("myID", myID);
     }
+    document.getElementById("my-id").innerText = myID;
 
-    function startChat() {
-      const id = document.getElementById('newChatId').value.trim();
-      if (id && id !== userId.toString()) {
-        activeChatId = id;
-        if (!chats[activeChatId]) chats[activeChatId] = [];
-        saveChats();
-        renderChat();
-        document.getElementById('newChatDialog').classList.add('hidden');
-      }
-    }
+    // Переменные
+    let currentChatID = null;
 
-    function sendMessage() {
-      const input = document.getElementById('messageInput');
-      const message = input.value.trim();
-      if (message && activeChatId) {
-        const timestamp = new Date().toLocaleTimeString();
-        chats[activeChatId].push({ from: userId, text: message, time: timestamp });
-        if (!chats[userId]) chats[userId] = [];
-        chats[activeChatId].push({ from: activeChatId, text: `Ответ от ${activeChatId}`, time: timestamp });
-        input.value = '';
-        saveChats();
-        renderChat();
-      }
-    }
+    // Поиск по ID
+    document.getElementById("searchBtn").onclick = () => {
+      currentChatID = document.getElementById("searchInput").value.trim();
+      if (!currentChatID) return;
+      document.getElementById("chat-with").innerText = "Chat with: " + currentChatID;
+      document.getElementById("messages").innerHTML = "";
 
-    function renderChat() {
-      const chatBox = document.getElementById('chatBox');
-      chatBox.innerHTML = '';
-      if (activeChatId && chats[activeChatId]) {
-        chats[activeChatId].forEach(msg => {
-          const div = document.createElement('div');
-          div.className = 'message';
-          div.innerText = `${msg.from === userId ? 'Вы' : 'Пользователь ' + msg.from}: ${msg.text} (${msg.time})`;
-          chatBox.appendChild(div);
-        });
-      }
-    }
+      const chatPath = getChatPath(myID, currentChatID);
+      const chatRef = ref(db, chatPath);
 
-    function saveChats() {
-      localStorage.setItem("chats", JSON.stringify(chats));
-    }
+      // Прослушка новых сообщений
+      onChildAdded(chatRef, (data) => {
+        const msg = data.val();
+        const div = document.createElement("div");
+        div.textContent = `${msg.sender === myID ? "You" : msg.sender}: ${msg.text}`;
+        document.getElementById("messages").appendChild(div);
+      });
+    };
 
-    function logout() {
-      localStorage.clear();
-      location.reload();
+    // Отправка сообщения
+    document.getElementById("sendBtn").onclick = () => {
+      const msg = document.getElementById("msgInput").value.trim();
+      if (!msg || !currentChatID) return;
+
+      const chatPath = getChatPath(myID, currentChatID);
+      const chatRef = ref(db, chatPath);
+
+      push(chatRef, {
+        sender: myID,
+        text: msg,
+        timestamp: Date.now()
+      });
+
+      document.getElementById("msgInput").value = "";
+    };
+
+    // Генерация уникального пути для пары пользователей
+    function getChatPath(id1, id2) {
+      return "chats/" + [id1, id2].sort().join("_");
     }
   </script>
+</head>
+<body>
+  <h2>🔐 Your ID: <span id="my-id"></span></h2>
+  <input id="searchInput" placeholder="Enter friend's ID" />
+  <button id="searchBtn">Start Chat</button>
+  <h3 id="chat-with"></h3>
+
+  <div id="messages" style="border:1px solid gray; height:300px; overflow:auto; padding:5px; margin:10px 0;"></div>
+
+  <input id="msgInput" placeholder="Type your message..." />
+  <button id="sendBtn">Send</button>
 </body>
 </html>
