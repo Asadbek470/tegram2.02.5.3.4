@@ -1,5 +1,5 @@
-# tegram2
-TEGRAM
+#tegramm
+uzgramm
 <!DOCTYPE html>
 <html lang="ru">
 <head>
